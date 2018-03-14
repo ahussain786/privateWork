@@ -1,0 +1,483 @@
+module sls-rpc {
+  yang-version 1.1;
+  namespace "urn:mef:yang:sls-rpc";
+ 
+  prefix sls-rpc;
+
+// import mef-global {
+//    prefix mef-global;
+ //   revision-date 2017-12-15;
+//  }
+
+ // import ietf-yang-types {
+  //  prefix yang;
+ // }
+ // import ietf-inet-types {
+ //   prefix inet;
+  //}
+  
+  import mef-types {
+    prefix mef-types;
+    //revision-date 2018-02-26;
+  }
+  
+  
+  /* container sls-rpc {
+  description
+      "MEF Global Profiles. This container includes
+       profiles for SLSs, CoS Name, Bandwidth Profile
+       parameter Sets, CoS and EEC ID Mappings etc.
+       These can be refered to froidm individual services
+       to save repeating the same information for each
+       service.";
+  
+  
+    container cos-names-profiles {
+      description
+        "Container for global list of CoS names.";
+      list profile {
+        key "name";
+        description
+          "List of all CoS Names used in any EVC.  This list is
+           referred to in many other places in the model.";
+        leaf name {
+          type mef-types:identifier1024;
+          description
+           "CoS Name.";
+        }
+      }
+    }
+  
+  }*/
+  
+  rpc get-sls-info {
+    description "Show sls information";
+  
+  
+    input {
+            leaf profileID {
+                type mef-types:identifier1024;
+            }
+    }
+    
+    output {
+      
+    		leaf id {
+                type mef-types:identifier1024;
+            }
+            
+            leaf name {
+                 type string;
+            }
+            
+            
+		    leaf details {
+		        type mef-types:identifier1024;
+		        description "Sls profile for which to display information";
+		    }
+		    
+		    leaf time-interval {
+		          type uint64;
+		          units "seconds";
+		          mandatory true;
+		          reference
+             		"[MEF10.3], Section 8.8, [R32]";
+		         
+		     }
+		         
+      
+     		list profile{
+     			 key "id";
+     			 
+     			 leaf id {
+		          type mef-types:identifier1024;
+		         }
+		         
+		         leaf time-interval {
+		          type uint64;
+		          units "seconds";
+		          mandatory true;
+		          reference
+             		"[MEF10.3], Section 8.8, [R32]";
+		         
+		         }
+		         
+		          container pm-cos-name-entries {
+		          	list pm-cos-name-entry {
+		          		key "cos-name";
+			            min-elements 1;
+			            leaf cos-name {
+				          //type leafref {
+			                type mef-types:identifier1024;
+						     description
+						           "CoS Name.";
+			             // }
+			             
+			            } // close cos-name
+		          	
+		          	
+		          	   leaf delta-t {
+			              type uint64;
+			              units "ms";
+			              mandatory true;
+			              reference
+			                "[MEF10.3] Section 8.8";
+            		   }// close delta-t
+		          	
+		          	 leaf threshold-c {
+			              type mef-types:simple-percent;
+			              units "percent";
+			              mandatory true;
+			              reference
+			                "[MEF10.3] Section 8.8";
+			         }// close threhold-c
+		            
+		            leaf consecutive-interval-n {
+		              type uint8;
+		              mandatory true;
+		              reference
+		                "[MEF10.3] Section 8.8";
+		            }// close consecutive-interval-n
+		          	
+		          	container pm-entries {
+		          	
+		          	  list pm-entry {
+		          	    key "id";
+                		min-elements 1;
+                		reference
+                 			 "[MEF10.3] Section 8.8";
+		                
+		                leaf id {
+		                  type mef-types:identifier1024;
+		                  description
+		                    "Identifier for specific performance profile.";
+		                }
+                		
+                		choice one-way-performance-metric {
+                		 mandatory true;
+		                  description
+		                    "Choice of different One-Way Performance
+		                     Objectives";
+		                     
+		                     case fd {
+		                     	 container one-way-frame-delay-pm {
+		                     	 	description
+				                        "One-Way Frame Delay (FD).";
+				                    reference
+				                         "[MEF10.3] Section 8.8.1";
+		                     	    leaf percentile {
+				                        type mef-types:simple-percent;
+				                        units "percent";
+				                        mandatory true;
+				                        description
+				                          "Frame Delay Performance Percentile.";
+				                        reference
+				                          "[MEF10.3] Section 8.8.1";
+				                    }
+				                    leaf objective {
+				                        type uint64;
+				                        units "ms";
+				                        mandatory true;
+				                        description
+				                          "Frame Delay Performance Objective.";
+				                        reference
+				                          "[MEF10.3] Section 8.8.1";
+				                    }
+		                     	 } //close container one-way-frame-delay-pm
+		                     } //close fd
+                		 
+                		     case mfd {
+			                    container one-way-mean-frame-delay-pm {
+			                      description
+			                        "One-Way Mean Frame Delay (MFD).";
+			                      reference
+			                        "[MEF10.3] Section 8.8.1.";
+			                      leaf objective {
+			                        type uint64;
+			                        units "ms";
+			                        mandatory true;
+			                        description
+			                          "Mean Frame Delay Performance Objective.";
+			                      }
+			                    }//close container one-way-mean-frame-delay-pm
+			                  }//close mfd
+                		 
+                		     case fdr {
+			                    container one-way-frame-delay-range-pm {
+			                      description
+			                        "One-Way Frame Delay Range (FDR)";
+			                      reference
+			                        "[MEF10.3] Section 8.8.1";
+			                      leaf percentile {
+			                        type mef-types:simple-percent;
+			                        units "percent";
+			                        mandatory true;
+			                        description
+			                          "Frame Delay Range Performance Percentile.";
+			                        reference
+			                          "[MEF10.3] Section 8.8.1";
+			                      }
+			                      leaf objective {
+			                        type uint64;
+			                        units "ms";
+			                        mandatory true;
+			                        description
+			                          "Frame Delay Range Performance Objective.";
+			                        reference
+			                          "[MEF10.3] Section 8.8.1";
+			                      }
+			                    }//close container one-way-frame-delay-range-pm
+			                  }//close fdr
+                              
+                              case ifdv {
+			                    container one-way-inter-frame-delay-variation-pm {
+			                      description
+			                        "One-Way Inter-Frame Delay Variation (IFDV).";
+			                      reference
+			                        "[MEF10.3] Section 8.8.2";
+			                      leaf percentile {
+			                        type mef-types:simple-percent;
+			                        units "percent";
+			                        mandatory true;
+			                        description
+			                          "Inter-Frame Delay Variation Performance
+			                           Percentile.";
+			                        reference
+			                          "[MEF10.3] Section 8.8.2";
+			                      }
+			                      leaf frame-pair-separation {
+			                        type uint64;
+			                        units "ms";
+			                        mandatory true;
+			                        description
+			                          "Inter-Frame Delay Variation frame pair
+			                           separation interval.";
+			                        reference
+			                          "[MEF10.3] Section 8.8.2";
+			                      }
+			                      leaf objective {
+			                        type uint64;
+			                        units "ms";
+			                        mandatory true;
+			                        description
+			                          "Inter-Frame Delay Variation Performance
+			                           Objective.";
+			                        reference
+			                          "[MEF10.3] Section 8.8.2";
+			                      }
+			                    }//close container one-way-inter-frame-delay-variation-pm
+			                  }//close ifdv
+                             
+                             case flr {
+			                    container one-way-frame-loss-ratio-pm {
+			                      description
+			                        "One-Way Frame Loss Ration (FLR)";
+			                      reference
+			                         "[MEF10.3] Section 8.8.3.";
+			                      leaf objective {
+			                        type mef-types:simple-percent;
+			                        units "percent";
+			                        mandatory true;
+			                        description
+			                          "Frame Loss Ratio Performance Objective";
+			                        reference
+			                          "[MEF10.3] Section 8.8.3.";
+			                      }
+			                    }//close container one-way-frame-loss-ratio-pm
+			                 }//close flr
+                  
+                  			 case availability {
+			                    container one-way-availability-pm {
+			                      description
+			                        "One-Way Availability";
+			                      leaf objective {
+			                        type mef-types:simple-percent;
+			                        units "percent";
+			                        mandatory true;
+			                        description
+			                          "Availability Performance Metric Objective";
+			                        reference
+			                          "[MEF10.3] Section 8.8.4.";
+			                      }
+			                    }//close container one-way-availability-pm
+			                  }//close availability
+                  
+                  			 case hli {
+			                    container one-way-high-loss-interval-pm {
+			                      description
+			                        "One-Way High Loss Intervals Count (HLI).";
+			                      leaf objective {
+			                        type uint64;
+			                        mandatory true;
+			                        description
+			                          "HLI Performance Objective expressed as an
+			                           integer.";
+			                        reference
+			                          "[MEF10.3] Section 8.8.5.";
+			                      }
+			                    }// close container one-way-high-loss-interval-pm
+			                  }// close hli
+			                  
+			                  case chli {
+			                    container one-way-consecutive-high-loss-interval-pm {
+			                      description
+			                        "One-Way Consecutive High Loss Intervals Count
+			                         (CHLI)";
+			                      reference
+			                        "[MEF10.3] Section 8.8.5.";
+			                      leaf consecutive-number-p {
+			                        type uint8;
+			                        must ". < ../../../../consecutive-interval-n" {
+			                          error-message
+			                            "The value of
+			                             chli-consecutive-small-time-intervals must
+			                             be less than
+			                             consecutive-small-time-intervals (p < n) if
+			                             both are defined.";
+			                          description
+			                            "The value of
+			                             chli-consecutive-small-time-intervals must
+			                             be less than
+			                             consecutive-small-time-intervals (p < n) if
+			                             both are defined.";
+			                          reference
+			                            "[MEF10.3] Section 8.8.5";
+			                        }
+			                        mandatory true;
+			                        description
+			                          "Number of consecutive small time intervals
+			                           for assessing CHLI.";
+			                        reference
+			                          "[MEF10.3] Table 10.";
+			                      }
+			                      leaf objective {
+			                        type uint64;
+			                        mandatory true;
+			                        description
+			                          "Consecutive HLI Performance Objective
+			                           expressed as an integer.";
+			                        reference
+			                          "[MEF10.3] Section 8.8.5.";
+			                      }
+			                    }// close container one-way-consecutive-high-loss-interval-pm
+			                  }// close chli
+			                  
+			                  case cpm {
+			                    container one-way-composite-pm {
+			                      description
+			                        "One-Way Composite Peformance Metric (CPM)";
+			                      reference
+			                         "[MEF10.3.1] Section 8.8.7";
+			                      leaf cpi-threshold-u {
+			                        type uint8 {
+			                           range "0..1";
+			                        }
+			                        mandatory true;
+			                        description
+			                          "The Composite Performance Indicator threshold
+			                           which if exceeded suggests a severe errored
+			                           time interval.";
+			                        reference
+			                          "[MEF10.3.1], Section 3";
+			                      }
+			                      leaf frame-loss-indicator {
+			                        type boolean;
+			                        mandatory true;
+			                        description
+			                          "The indicator for frame loss
+			                           characteristics";
+			                        reference
+			                          "[MEF10.3.1], Section 3";
+			                      }
+			                      leaf frame-delay-indicator {
+			                        type boolean;
+			                        mandatory true;
+			                        description
+			                          "The indicator for frame delay
+			                           characteristics";
+			                        reference
+			                          "[MEF10.3.1], Section 3";
+			                      }
+			                      leaf ifdv-indicator {
+			                        type boolean;
+			                        mandatory true;
+			                        description
+			                          "The indicator for inter-frame delay variation
+			                           characteristics";
+			                        reference
+			                          "[MEF10.3.1], Section 3";
+			                      }
+			                      leaf one-way-fd-threshold {
+			                        type uint64;
+			                        mandatory true;
+			                        description
+			                          "One way frame delay threshold";
+			                        reference
+			                          "[MEF10.3.1], Section 3";
+			                      }
+			                      leaf one-way-ifdv-threshold {
+			                        type uint64;
+			                        mandatory true;
+			                        description
+			                          "One way inter-frame delay threshold";
+			                        reference
+			                          "[MEF10.3.1], Section 3";
+			                      }
+			                      leaf objective {
+			                        type mef-types:simple-percent;
+			                        mandatory true;
+			                        description
+			                          "Composite Performance Metric Objective
+			                           expressed as a percentage";
+			                        reference
+			                          "[MEF10.3.1], Section 3";
+			                      }
+			                    }// close container one-way-composite-pm
+			                  }//close cpm
+			                  
+			                  case group-avail {
+			                    container one-way-group-availability-pm {
+			                      description
+			                        "One-Way Group Availability";
+			                      reference
+			                        "[MEF10.3] Section 8.8.6.";
+			                      leaf min-number-of-uni-pair-sets {
+			                        type uint16;
+			                        mandatory true;
+			                        description
+			                          "Minimum number of sets of ordered UNI
+			                           pairs that must be available";
+			                        reference
+			                          "[MEF10.3] Section 8.8.6.";
+			                      }
+			                      leaf objective {
+			                        type mef-types:simple-percent;
+			                        units "percent";
+			                        mandatory true;
+			                        description
+			                          "Group Availability Performance Objective
+			                           expressed as a percentage.";
+			                        reference
+			                          "[MEF10.3] Section 8.8.6.";
+			                      }
+			                    }//close container one-way-group-availability-pm
+			                  }//close group-avail
+			                  
+			                  
+                		} // close choice one-way-performance-metric
+		          	  }// close list pm-entry
+		          	} // close pm-entries
+		          	}//close list pm-cos-name-entry
+		          } // close pm-cos-name-entries
+		          
+     		}// profile list close
+     		
+     		
+     		
+      } // close output
+      
+	      
+      
+    }// close rpc
+    
+}

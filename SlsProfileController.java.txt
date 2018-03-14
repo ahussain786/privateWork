@@ -1,0 +1,344 @@
+/*
+ * Copyright (c) 2017 Cisco Systems Inc and others.  All rights reserved.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v1.0 which accompanies this distribution,
+ * and is available at http://www.eclipse.org/legal/epl-v10.html
+ */
+package org.opendaylight;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.Future;
+
+import javax.annotation.Nonnull;
+
+import org.opendaylight.controller.md.sal.binding.api.DataBroker;
+import org.opendaylight.controller.md.sal.binding.api.DataObjectModification;
+import org.opendaylight.controller.md.sal.binding.api.DataTreeChangeListener;
+import org.opendaylight.controller.md.sal.binding.api.DataTreeIdentifier;
+import org.opendaylight.controller.md.sal.binding.api.DataTreeModification;
+import org.opendaylight.controller.md.sal.binding.api.ReadTransaction;
+import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
+import org.opendaylight.controller.md.sal.common.api.data.ReadFailedException;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.MefGlobal;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.Availability;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.Cpm;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.Fd;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.Fdr;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.Flr;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.Ifdv;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.Mfd;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.mef.types.rev171215.SimplePercent;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.GetSlsInfoInput;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.GetSlsInfoOutput;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.GetSlsInfoOutputBuilder;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.SlsRpcService;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.PmEntryKey;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.AvailabilityBuilder;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.cpm.OneWayCompositePmBuilder;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.fd.OneWayFrameDelayPmBuilder;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.fdr.OneWayFrameDelayRangePmBuilder;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.flr.OneWayFrameLossRatioPmBuilder;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.ifdv.OneWayInterFrameDelayVariationPmBuilder;
+import org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.mfd.OneWayMeanFrameDelayPmBuilder;
+import org.opendaylight.yangtools.concepts.ListenerRegistration;
+import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
+import org.opendaylight.yangtools.yang.common.RpcResult;
+import org.opendaylight.yangtools.yang.common.RpcResultBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Optional;
+import com.google.common.util.concurrent.CheckedFuture;
+
+@SuppressWarnings("deprecation")
+public class SlsProfileController implements
+		DataTreeChangeListener<MefGlobal>, AutoCloseable, SlsRpcService{
+
+	private static final Logger LOG = LoggerFactory.getLogger(SlsProfileController.class);
+	private ListenerRegistration<SlsProfileController> dataTreeChangeListenerRegistration;
+	private static final InstanceIdentifier<MefGlobal> SERVICE_IID = InstanceIdentifier.builder(MefGlobal.class)
+			.build();
+	protected DataBroker dataProvider;
+	DataTreeModification<MefGlobal> newDataObject;
+
+	
+	
+	public SlsProfileController() {
+	}
+
+	
+	public void setDataBroker(final DataBroker dataProvider) {
+		this.dataProvider = dataProvider;
+	}
+
+	
+	public void init() {
+		LOG.info("SlsProfileController Initializing int()...");
+		dataTreeChangeListenerRegistration = dataProvider.registerDataTreeChangeListener(
+				new DataTreeIdentifier<MefGlobal>(LogicalDatastoreType.CONFIGURATION, SERVICE_IID), this);
+	}
+
+	
+	@Override
+	public void onDataTreeChanged(@Nonnull Collection<DataTreeModification<MefGlobal>> changes) {
+
+		for (DataTreeModification<MefGlobal> change : changes) {
+
+			this.newDataObject = change;
+			LOG.info("DataObject values  :::" + newDataObject.toString());
+			final DataObjectModification<MefGlobal> rootNode = change.getRootNode();
+
+			if (rootNode != null) {
+				LOG.info("All profile details  :::" + rootNode.getDataAfter().getSlsProfiles().toString());
+
+			} else {
+				LOG.info("Profile details does not exist !");
+			}
+		}
+	}
+
+	
+	@Override
+	public void close() throws Exception {
+		dataTreeChangeListenerRegistration.close();
+	}
+	
+	
+	/* (non-Javadoc)
+	 * @see org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.SlsRpcService#getSlsInfo(org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.GetSlsInfoInput)
+	 */
+	@Override
+	public Future<RpcResult<GetSlsInfoOutput>> getSlsInfo(GetSlsInfoInput input) {
+
+		GetSlsInfoOutputBuilder rpcResult = new GetSlsInfoOutputBuilder();
+		final ReadTransaction transaction = dataProvider.newReadOnlyTransaction();
+		final InstanceIdentifier<MefGlobal> rootPath = newDataObject.getRootPath().getRootIdentifier();
+		final CheckedFuture<Optional<MefGlobal>, ReadFailedException> slsProfileService = transaction
+				.read(LogicalDatastoreType.CONFIGURATION, rootPath);
+
+		try {
+			if (slsProfileService.checkedGet() != null) {
+				
+				List<org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.Profile> profileList = getProfile(input);
+				List<org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.Profile> profileDetails = new ArrayList<org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.Profile>();
+				List<org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.PmCosNameEntry> _outpmCosNameEntry = new ArrayList<org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.PmCosNameEntry>();
+				List<org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.PmEntry> _outpmEntry;
+
+				org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.ProfileBuilder outProfileBuilder;
+
+				for (org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.Profile profile : profileList) {
+					outProfileBuilder = new org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.ProfileBuilder();
+					
+					
+					if (input.getProfileID().getValue().toString()
+							.equalsIgnoreCase(profile.getId().getValue().toString())) {
+						 
+						outProfileBuilder.setId(profile.getId());
+						outProfileBuilder.setTimeInterval(profile.getTimeInterval());
+						LOG.info("Matched profile ID :::" + outProfileBuilder.getId());
+						
+
+						org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.PmCosNameEntriesBuilder pmCosBuilder;
+						org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.PmEntryBuilder _outPmEntryBuilder;
+						org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.PmEntriesBuilder outPmEntriesBuilder;
+						//org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.PmCosNameEntryKey outPmCosNameEntObj;
+						List<org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.profile.pm.cos.name.entries.PmCosNameEntry> _pmCosNameEntry = profile.getPmCosNameEntries().getPmCosNameEntry();
+						List<org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.PmEntry> _pmEntry;
+						
+						
+						for(org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.profile.pm.cos.name.entries.PmCosNameEntry pmCosNameEntry : _pmCosNameEntry) {
+							org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.PmCosNameEntryBuilder outPmCosNameEntryBuilder = new  org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.PmCosNameEntryBuilder();
+							outPmEntriesBuilder = new org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.PmEntriesBuilder();
+							pmCosBuilder = new org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.PmCosNameEntriesBuilder();
+							_outpmEntry = new ArrayList<org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.PmEntry>();
+							//outPmCosNameEntObj = new PmCosNameEntryKey(pmCosNameEntry.getKey().getCosName());
+							
+							outPmCosNameEntryBuilder.setCosName(pmCosNameEntry.getCosName());
+							outPmCosNameEntryBuilder.setDeltaT(pmCosNameEntry.getDeltaT());
+							outPmCosNameEntryBuilder.setThresholdC(pmCosNameEntry.getThresholdC());
+							outPmCosNameEntryBuilder.setConsecutiveIntervalN(pmCosNameEntry.getConsecutiveIntervalN());
+							//outPmCosNameEntryBuilder.setKey(outPmCosNameEntObj);
+							outPmCosNameEntryBuilder.setKey(new org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.PmCosNameEntryKey(pmCosNameEntry.getKey().getCosName()));
+							_pmEntry = pmCosNameEntry.getPmEntries().getPmEntry();
+							LOG.info("_pmEntry list size :::" + _pmEntry.size());
+							
+							org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.PmEntryKey pmEnObj;
+							_outPmEntryBuilder = new org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.PmEntryBuilder();
+							org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.OneWayPerformanceMetric oneObj; 	
+							
+							for(org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.PmEntry pmEntry : _pmEntry) {
+								oneObj = pmEntry.getOneWayPerformanceMetric();
+								if (oneObj != null) {
+									if (oneObj instanceof Availability) {
+										org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.AvailabilityBuilder _outAvailBuilder = new AvailabilityBuilder();
+
+										LOG.info("Instance of Availability :::" + ((Availability) oneObj)
+												.getOneWayAvailabilityPm().toString());
+										
+										SimplePercent simPerObj = new SimplePercent(((Availability) oneObj)
+												.getOneWayAvailabilityPm().getObjective().getValue());
+										_outAvailBuilder.setOneWayAvailabilityPm(
+												new org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.availability.OneWayAvailabilityPmBuilder()
+														.setObjective(simPerObj).build());
+										_outPmEntryBuilder.setOneWayPerformanceMetric(_outAvailBuilder.build());
+										
+									} else if (oneObj instanceof Cpm) {
+										org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.cpm.OneWayCompositePmBuilder _outOneWayCompositePmBuilderObj = new OneWayCompositePmBuilder();
+										LOG.info("Instance of Cpm :::"
+												+ ((Cpm) oneObj).getOneWayCompositePm().toString());
+
+										_outOneWayCompositePmBuilderObj.setCpiThresholdU(
+												((Cpm) oneObj).getOneWayCompositePm().getCpiThresholdU());
+										_outOneWayCompositePmBuilderObj.setFrameDelayIndicator(
+												((Cpm) oneObj).getOneWayCompositePm().isFrameDelayIndicator());
+										_outOneWayCompositePmBuilderObj.setFrameLossIndicator(
+												((Cpm) oneObj).getOneWayCompositePm().isFrameLossIndicator());
+										_outOneWayCompositePmBuilderObj.setIfdvIndicator(
+												((Cpm) oneObj).getOneWayCompositePm().isIfdvIndicator());
+										_outOneWayCompositePmBuilderObj.setOneWayFdThreshold(
+												((Cpm) oneObj).getOneWayCompositePm().getOneWayFdThreshold());
+										_outOneWayCompositePmBuilderObj.setOneWayIfdvThreshold(
+												((Cpm) oneObj).getOneWayCompositePm().getOneWayFdThreshold());
+										_outOneWayCompositePmBuilderObj.setObjective(new SimplePercent(
+												((Cpm) oneObj).getOneWayCompositePm().getObjective().getValue()));
+										_outPmEntryBuilder.setOneWayPerformanceMetric(
+												new org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.CpmBuilder()
+														.setOneWayCompositePm(_outOneWayCompositePmBuilderObj.build())
+														.build());
+										
+									} else if (oneObj instanceof Fd) {
+										org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.fd.OneWayFrameDelayPmBuilder _outOneWayFdPmBuilderObj = new OneWayFrameDelayPmBuilder();
+										LOG.info("Instance of Fd :::"
+												+ ((Fd) oneObj).getOneWayFrameDelayPm().toString());
+
+										_outOneWayFdPmBuilderObj
+												.setPercentile(((Fd) oneObj).getOneWayFrameDelayPm().getPercentile());
+										_outOneWayFdPmBuilderObj
+												.setObjective(((Fd) oneObj).getOneWayFrameDelayPm().getObjective());
+										_outPmEntryBuilder.setOneWayPerformanceMetric(
+												new org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.FdBuilder()
+														.setOneWayFrameDelayPm(_outOneWayFdPmBuilderObj.build())
+														.build());
+
+									} else if (oneObj instanceof Mfd) {
+										LOG.info("Instance of Mfd :::"
+												+ ((Mfd) oneObj).getOneWayMeanFrameDelayPm().toString());
+										org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.mfd.OneWayMeanFrameDelayPmBuilder _outOneWayMeanFrameDelayPmBuilderObj = new OneWayMeanFrameDelayPmBuilder();
+
+										_outOneWayMeanFrameDelayPmBuilderObj.setObjective(
+												((Mfd) oneObj).getOneWayMeanFrameDelayPm().getObjective());
+										_outPmEntryBuilder.setOneWayPerformanceMetric(
+												new org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.MfdBuilder()
+														.setOneWayMeanFrameDelayPm(
+																_outOneWayMeanFrameDelayPmBuilderObj.build())
+														.build());
+										
+									} else if (oneObj instanceof Fdr) {
+										LOG.info("Instance of Fdr :::"
+												+ ((Fdr) oneObj).getOneWayFrameDelayRangePm().toString());
+										org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.fdr.OneWayFrameDelayRangePmBuilder _outOneWayFrameDelayRangePmBuilderObj = new OneWayFrameDelayRangePmBuilder();
+										_outOneWayFrameDelayRangePmBuilderObj.setObjective(
+												((Fdr) oneObj).getOneWayFrameDelayRangePm().getObjective());
+										_outOneWayFrameDelayRangePmBuilderObj.setPercentile(
+												((Fdr) oneObj).getOneWayFrameDelayRangePm().getPercentile());
+										_outPmEntryBuilder.setOneWayPerformanceMetric(
+												new org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.FdrBuilder()
+														.setOneWayFrameDelayRangePm(
+																_outOneWayFrameDelayRangePmBuilderObj.build())
+														.build());
+										
+									} else if (oneObj instanceof Ifdv) {
+										LOG.info("Instance of Ifdv :::"
+												+ ((Ifdv) oneObj).getOneWayInterFrameDelayVariationPm().toString());
+										org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.ifdv.OneWayInterFrameDelayVariationPmBuilder _outOneWayInterFrameDelayPmBuilderObj = new OneWayInterFrameDelayVariationPmBuilder();
+										_outOneWayInterFrameDelayPmBuilderObj.setFramePairSeparation(((Ifdv) oneObj)
+												.getOneWayInterFrameDelayVariationPm().getFramePairSeparation());
+										_outOneWayInterFrameDelayPmBuilderObj.setObjective(
+												((Ifdv) oneObj).getOneWayInterFrameDelayVariationPm().getObjective());
+										_outOneWayInterFrameDelayPmBuilderObj.setPercentile(
+												((Ifdv) oneObj).getOneWayInterFrameDelayVariationPm().getPercentile());
+										_outPmEntryBuilder.setOneWayPerformanceMetric(
+												new org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.IfdvBuilder()
+														.setOneWayInterFrameDelayVariationPm(
+																_outOneWayInterFrameDelayPmBuilderObj.build())
+														.build());
+
+									} else if (oneObj instanceof Flr) {
+										LOG.info("Instance of Flr :::"
+												+ ((Flr) oneObj).getOneWayFrameLossRatioPm().toString());
+										org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.flr.OneWayFrameLossRatioPmBuilder _outOneWayFrameLossRatioPmBuilder = new OneWayFrameLossRatioPmBuilder();
+										_outOneWayFrameLossRatioPmBuilder.setObjective(
+												((Flr) oneObj).getOneWayFrameLossRatioPm().getObjective());
+										_outPmEntryBuilder.setOneWayPerformanceMetric(
+												new org.opendaylight.yang.gen.v1.urn.mef.yang.sls.rpc.rev700101.get.sls.info.output.profile.pm.cos.name.entries.pm.cos.name.entry.pm.entries.pm.entry.one.way.performance.metric.FlrBuilder()
+														.setOneWayFrameLossRatioPm(
+																_outOneWayFrameLossRatioPmBuilder.build())
+														.build());
+									}
+								}
+										
+								pmEnObj = new PmEntryKey(pmEntry.getKey().getId());
+								_outPmEntryBuilder.setId(pmEntry.getId());
+								_outPmEntryBuilder.setKey(pmEnObj);
+								_outpmEntry.add(_outPmEntryBuilder.build());
+								outPmEntriesBuilder.setPmEntry(_outpmEntry);
+							}
+							outPmCosNameEntryBuilder.setPmEntries(outPmEntriesBuilder.build());
+							LOG.info("_outpmEntry list size :::" + _outpmEntry.size());
+							_outpmCosNameEntry.add(outPmCosNameEntryBuilder.build());
+							pmCosBuilder.setPmCosNameEntry(_outpmCosNameEntry);
+							outProfileBuilder.setPmCosNameEntries(pmCosBuilder.build());
+						}
+						profileDetails.add(outProfileBuilder.build());
+						rpcResult.setProfile(profileDetails);
+					}
+				}
+			}
+
+		} catch (ReadFailedException e) {
+			LOG.error("Error reading node {}", rootPath);
+			throw new RuntimeException("Error reading from operational store, node : " + rootPath, e);
+		}
+		return RpcResultBuilder.success(rpcResult.build()).buildFuture();
+	}
+	
+	
+	/**
+	 * @param input
+	 * @return list<Profile>
+	 */
+	public List<org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.Profile> getProfile(GetSlsInfoInput input){
+		LOG.info("getProfile function called:::");
+		final ReadTransaction transaction = dataProvider.newReadOnlyTransaction();
+		final InstanceIdentifier<MefGlobal> rootPath = newDataObject.getRootPath().getRootIdentifier();
+		final CheckedFuture<Optional<MefGlobal>, ReadFailedException> slsProfileService = transaction.read(LogicalDatastoreType.CONFIGURATION, rootPath);
+		
+		List<org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.Profile> profileLists;
+		List<org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.Profile> profileDetails = new ArrayList<org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.Profile>();
+		
+		try {
+			if (slsProfileService.checkedGet() != null) {
+
+				profileLists = slsProfileService.checkedGet().get().getSlsProfiles().getProfile();
+				LOG.info("sls profiles list data ::: " + profileLists.toString());
+
+				for (org.opendaylight.yang.gen.v1.urn.mef.yang.mef.global.rev171215.mef.global.sls.profiles.Profile profile : profileLists) {
+
+					if (input.getProfileID().getValue().toString().equalsIgnoreCase(profile.getId().getValue().toString())) {
+						LOG.info("Matched profile ID ::: " + profile.getId().getValue().toString());
+						profileDetails.add(profile);
+					}
+				}
+			}
+		} catch (ReadFailedException e) {
+			LOG.error("Error reading node {}", rootPath);
+			//throw new RuntimeException("Error reading from operational store, node : " + rootPath, e);
+			throw new IllegalStateException("Unexpected error reading data from " + rootPath, e);
+		}
+		return profileDetails;
+	}
+
+}

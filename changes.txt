@@ -1,0 +1,39 @@
+class : LegatoSlsProfileController
+
+@SuppressWarnings("unchecked")
+	private void updateNode(Profile profile) {
+		LOG.info(" inside updateNode()");
+
+		try {
+			assert profile != null;
+			/*Optional<Profile> OptionalProfile = readProfile(dataBroker, LogicalDatastoreType.CONFIGURATION,
+					InstanceIdentifier.create(MefGlobal.class).child(SlsProfiles.class).child(Profile.class,
+							new ProfileKey(profile.getId())));*/
+			
+			Optional<Profile> OptionalProfile = (Optional<Profile>) LegatoUtils.readProfile(LegatoConstants.SLS_PROFILES, dataBroker, LogicalDatastoreType.CONFIGURATION,
+					InstanceIdentifier.create(MefGlobal.class).child(SlsProfiles.class).child(Profile.class,
+							new ProfileKey(profile.getId())));
+
+			if (OptionalProfile.isPresent()) {
+
+				deleteProfileFromOperationalDB(InstanceIdentifier.create(MefGlobal.class).child(SlsProfiles.class)
+						.child(Profile.class, new ProfileKey(profile.getId())));
+
+				UpdateProfileOnOperationalDB(OptionalProfile.get());
+			}
+
+		} catch (Exception ex) {
+			LOG.error("error: ", ex);
+		}
+
+		LOG.info(" ********** END updateNode() ****************** ");
+
+	}
+
+
+
+
+
+class LegatoConstants
+
+public static final String SLS_PROFILES = "SLS_PROFILES";
